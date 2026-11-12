@@ -48,3 +48,8 @@ test('ticker duplicates names, second copy hidden from AT', () => {
   assert.equal(html.match(/X &lt;App&gt;/g).length, 2);
   assert.match(html, /aria-hidden="true"/);
 });
+
+test('spotlight without image or built copy renders no figure and no undefined', () => {
+  const html = spotlightHTML({ ...base, image: undefined, built: undefined }, 0);
+  assert.doesNotMatch(html, /<figure|undefined/);
+});

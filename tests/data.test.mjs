@@ -30,3 +30,7 @@ test('store links are https store URLs', () => {
 test('every project with an image has its webp on disk', () => {
   for (const p of PROJECTS.filter(p => p.image)) assert.ok(existsSync(`assets/apps/${p.slug}.webp`), p.slug);
 });
+
+test('every flagship has an image and built copy', () => {
+  for (const p of PROJECTS.filter(p => p.tier === 'flagship')) assert.ok(p.image && p.built, p.slug);
+});

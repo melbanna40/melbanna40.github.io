@@ -1,10 +1,5 @@
 const COUNT_MS = 1200;
 const STAGGER_MS = 60;
-const desktopPreview = matchMediaSafe('(hover: hover) and (min-width: 1024px)');
-
-function matchMediaSafe(query) {
-  return typeof matchMedia === 'function' ? matchMedia(query) : { matches: false };
-}
 
 /** @param {number} value @param {{decimals?: number, suffix?: string}} [opts] @returns {string} */
 export function formatStat(value, { decimals = 0, suffix = '' } = {}) {
@@ -47,49 +42,67 @@ function observeReveals(root) {
   root.querySelectorAll('.reveal').forEach(el => io.observe(el));
 }
 
-function setRowOpen(button, isOpen) {
-  button.setAttribute('aria-expanded', String(isOpen));
-  const item = button.closest('li');
-  let shot = item.querySelector('.row__shot');
-  if (isOpen && !shot) {
-    shot = Object.assign(document.createElement('img'), {
-      className: 'row__shot',
-      src: button.dataset.preview,
-      alt: `${button.querySelector('.row__name').firstChild.textContent} app screens`,
-      width: 720,
-      height: 1280,
-    });
-    button.after(shot);
+function openRow(button) {
+  button.setAttribute('aria-expanded', 'true');
+  const shot = button.parentElement.querySelector('.row__shot');
+  if (shot) {
+    shot.hidden = false;
+    return;
   }
-  if (shot) shot.hidden = !isOpen;
+  button.after(Object.assign(document.createElement('img'), {
+    className: 'row__shot',
+    src: button.dataset.preview,
+    alt: `${button.querySelector('.row__name').firstChild.textContent} app screens`,
+    width: 720,
+    height: 1280,
+  }));
 }
 
-function wireIndex(list, preview) {
+function closeRow(button) {
+  button.setAttribute('aria-expanded', 'false');
+  button.parentElement.querySelector('.row__shot').hidden = true;
+}
+
+function wireHoverPreview(list, preview) {
+  const desktop = matchMedia('(hover: hover) and (min-width: 1024px)');
   const frame = preview.closest('.preview');
+  const hide = () => frame.classList.remove('is-on');
   const show = event => {
+    if (!desktop.matches) return;
     const button = event.target.closest('button.row');
-    if (!button || !desktopPreview.matches) return;
+    if (!button) {
+      if (event.target.closest('.row')) hide();
+      return;
+    }
     preview.src = button.dataset.preview;
     frame.classList.add('is-on');
   };
   list.addEventListener('pointerover', show);
   list.addEventListener('focusin', show);
-  list.addEventListener('pointerleave', () => frame.classList.remove('is-on'));
+  list.addEventListener('pointerleave', hide);
+  list.addEventListener('focusout', event => {
+    if (!list.contains(event.relatedTarget)) hide();
+  });
+}
 
+function wireTapToggle(list) {
   let open = null;
   list.addEventListener('click', event => {
     const button = event.target.closest('button.row');
     if (!button) return;
-    if (open) setRowOpen(open, false);
+    if (open) closeRow(open);
     open = nextPreviewState(open, button);
-    if (open) setRowOpen(open, true);
+    if (open) openRow(open);
   });
 }
 
 /** @param {Document} root */
 export function initMotion(root) {
-  wireIndex(root.getElementById('index-list'), root.getElementById('preview'));
-  // ponytail: reduced motion needs no JS branch beyond this — the CSS only hides reveals under no-preference
-  if (matchMediaSafe('(prefers-reduced-motion: reduce)').matches) return;
+  const list = root.getElementById('index-list');
+  wireHoverPreview(list, root.getElementById('preview'));
+  wireTapToggle(list);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // The class gates the CSS that hides reveal targets, so if any script fails the content stays visible.
+  root.documentElement.classList.add('motion');
   observeReveals(root);
 }
